@@ -1,8 +1,11 @@
 spring:
   application:
     name: api-gateway
+
+  # TEMP: disable config server for Docker/local testing stability
   config:
-    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888/}
+    import: optional:configserver:${CONFIG_SERVER_URL:http://config-server:8888}
+
   cloud:
     gateway:
       server:
@@ -16,38 +19,40 @@ spring:
               args:
                 retries: 1
                 statuses: SERVICE_UNAVAILABLE
-                methods: POST
+                methods: GET,POST
+
           routes:
             - id: vets-service
-              uri: lb://vets-service
+              uri: http://vets-service:8080
               predicates:
                 - Path=/api/vet/**
               filters:
                 - StripPrefix=2
+
             - id: visits-service
-              uri: lb://visits-service
+              uri: http://visits-service:8080
               predicates:
                 - Path=/api/visit/**
               filters:
                 - StripPrefix=2
+
             - id: customers-service
-              uri: lb://customers-service
+              uri: http://customers-service:8080
               predicates:
                 - Path=/api/customer/**
               filters:
                 - StripPrefix=2
+
             - id: genai-service
-              uri: lb://genai-service
+              uri: http://genai-service:8080
               predicates:
                 - Path=/api/genai/**
               filters:
                 - StripPrefix=2
-                - CircuitBreaker=name=genaiCircuitBreaker,fallbackUri=/fallback
+                - name: CircuitBreaker
+                  args:
+                    name: genaiCircuitBreaker
+                    fallbackUri: forward:/fallback
+
   reactor:
     context-propagation: auto
----
-spring:
-  config:
-    activate:
-      on-profile: docker
-    import: configserver:http://config-server:8888
